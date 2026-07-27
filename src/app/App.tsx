@@ -769,6 +769,15 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Update document title based on auth state
+  useEffect(() => {
+    if (user) {
+      document.title = "MediCore Dashboard";
+    } else {
+      document.title = "MediCore Signup";
+    }
+  }, [user]);
+
   const handleEmailSent = (email: string, flow: AuthFlow) => {
     setEmailForOtp(email);
     setAuthFlow(flow);
