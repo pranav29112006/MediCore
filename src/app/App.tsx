@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { AdminDashboard } from "../components/dashboards/AdminDashboard";
+import { DoctorDashboard } from "../components/dashboards/DoctorDashboard";
+import { NurseDashboard } from "../components/dashboards/NurseDashboard";
+import { ReceptionistDashboard } from "../components/dashboards/ReceptionistDashboard";
 import {
   Eye,
   EyeOff,
@@ -678,62 +682,16 @@ function Dashboard({ user }: { user: SupabaseUser }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
+          className="mb-8"
         >
           <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back, {(metadata.full_name || 'User').split(' ')[0]}! 👋</h1>
-          <p className="text-muted-foreground mb-8">Here's what's happening at MediCore today.</p>
-
-          {/* Stats grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {STATS.map(({ label, value, icon: Icon, color }, i) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.08, duration: 0.5, ease: "easeOut" }}
-                className="rounded-xl border border-border bg-card/80 backdrop-blur-md p-5 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`flex size-8 items-center justify-center rounded-lg bg-primary/10`}>
-                    <Icon className={`size-4 ${color}`} />
-                  </div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
-                </div>
-                <p className="text-3xl font-bold text-foreground">{value}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Info card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-            className="rounded-xl border border-border bg-card/80 backdrop-blur-md p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <CheckCircle2 className="size-5 text-emerald-500" />
-              <h2 className="text-lg font-semibold text-foreground">Account Verified</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Email</p>
-                <p className="font-medium text-foreground">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Role</p>
-                <p className="font-medium text-foreground capitalize">{metadata.role || 'Not set'}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Full Name</p>
-                <p className="font-medium text-foreground">{metadata.full_name || 'Not set'}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Account Created</p>
-                <p className="font-medium text-foreground">{user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</p>
-              </div>
-            </div>
-          </motion.div>
+          <p className="text-muted-foreground">Here's what's happening at MediCore today.</p>
         </motion.div>
+
+        {(!metadata.role || metadata.role === 'receptionist') && <ReceptionistDashboard />}
+        {metadata.role === 'admin' && <AdminDashboard />}
+        {metadata.role === 'doctor' && <DoctorDashboard />}
+        {metadata.role === 'nurse' && <NurseDashboard />}
       </main>
     </div>
   );
