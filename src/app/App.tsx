@@ -624,9 +624,121 @@ function HeroPanel() {
   );
 }
 
+// ─── Role Selection Screen (for Google OAuth / users without role) ─────────────
+
+function RoleSelectionScreen({ user, onRoleSelected }: { user: SupabaseUser; onRoleSelected: () => void }) {
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { dark, toggle } = useTheme();
+
+  const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'there';
+
+  const handleConfirm = async () => {
+    if (!selectedRole) return;
+    setSaving(true);
+
+    // Update user metadata with the chosen role
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        role: selectedRole,
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+      },
+    });
+
+    setSaving(false);
+
+    if (error) {
+      alert('Error setting role: ' + error.message);
+    } else {
+      onRoleSelected();
+    }
+  };
+
+  return (
+    <div
+      className="relative min-h-screen w-full bg-background flex items-center justify-center p-4 overflow-hidden"
+      style={{ fontFamily: "var(--font-family, 'DM Sans', sans-serif)" }}
+    >
+      {/* Background effects */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/20 blur-[120px] pointer-events-none" />
+
+      {/* Theme toggle */}
+      <button onClick={toggle}
+        className="fixed top-4 right-4 z-50 flex size-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:text-foreground hover:border-primary/40">
+        {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      </button>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-lg p-8 rounded-2xl border border-border bg-card/80 backdrop-blur-2xl shadow-2xl shadow-primary/10"
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
+            <Activity className="size-5 text-primary-foreground" />
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-foreground tracking-tight leading-none">MediCore</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Hospital Management</p>
+          </div>
+        </div>
+
+        {/* Welcome */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-foreground">Welcome, {displayName.split(' ')[0]}! 👋</h2>
+          <p className="text-sm text-muted-foreground mt-1">One last step — select your role to access the right dashboard.</p>
+        </div>
+
+        {/* Role Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {ROLES.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              onClick={() => setSelectedRole(r.value)}
+              className={`relative flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer ${
+                selectedRole === r.value
+                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                  : "border-border bg-input-background text-muted-foreground hover:border-primary/40 hover:bg-secondary"
+              }`}
+            >
+              {selectedRole === r.value && (
+                <CheckCircle2 className="absolute top-3 right-3 size-4 text-primary" />
+              )}
+              <span className="text-sm font-bold">{r.label}</span>
+              <span className="text-[11px] leading-tight opacity-70">{r.description}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Info note */}
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 mb-6">
+          <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+            💡 <strong>This determines your dashboard access.</strong> Admins manage staff & view analytics. Doctors handle clinical decisions. Nurses record vitals. Receptionists manage admissions.
+          </p>
+        </div>
+
+        {/* Confirm Button */}
+        <button
+          onClick={handleConfirm}
+          disabled={!selectedRole || saving}
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <><Spinner /> Setting up your account…</>
+          ) : (
+            <><ChevronRight className="size-4" /> Continue as {selectedRole ? ROLES.find(r => r.value === selectedRole)?.label : '...'}</>
+          )}
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Dashboard (shown after successful auth) ─────────────────────────────────
-
-
 
 function Dashboard({ user }: { user: SupabaseUser }) {
   const { dark, toggle } = useTheme();
@@ -665,7 +777,7 @@ function Dashboard({ user }: { user: SupabaseUser }) {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-semibold text-foreground">{metadata.full_name || 'User'}</p>
+              <p className="text-sm font-semibold text-foreground">{metadata.full_name || metadata.name || 'User'}</p>
               <p className="text-xs text-muted-foreground capitalize">{metadata.role || 'Staff'}</p>
             </div>
             <button onClick={handleLogout}
@@ -684,11 +796,11 @@ function Dashboard({ user }: { user: SupabaseUser }) {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back, {(metadata.full_name || 'User').split(' ')[0]}! 👋</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back, {(metadata.full_name || metadata.name || 'User').split(' ')[0]}! 👋</h1>
           <p className="text-muted-foreground">Here's what's happening at MediCore today.</p>
         </motion.div>
 
-        {(!metadata.role || metadata.role === 'receptionist') && <ReceptionistDashboard />}
+        {metadata.role === 'receptionist' && <ReceptionistDashboard />}
         {metadata.role === 'admin' && <AdminDashboard />}
         {metadata.role === 'doctor' && <DoctorDashboard />}
         {metadata.role === 'nurse' && <NurseDashboard />}
@@ -764,7 +876,23 @@ export default function App() {
     );
   }
 
-  // If user is authenticated, show dashboard
+  // If user is authenticated but has no role (e.g. Google OAuth), show role selection
+  if (user && !user.user_metadata?.role) {
+    return (
+      <RoleSelectionScreen
+        user={user}
+        onRoleSelected={async () => {
+          // Refresh the session to get updated user_metadata
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.user) {
+            setUser({ ...data.session.user });
+          }
+        }}
+      />
+    );
+  }
+
+  // If user is authenticated and has a role, show dashboard
   if (user) {
     return <Dashboard user={user} />;
   }
