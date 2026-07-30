@@ -3,7 +3,7 @@
 // ~60% of patients get 1-3 prescription letters, ~40% are "new" (no letters).
 
 import type { PrescriptionLetter, PrescriptionLetterMedication } from "../lib/types";
-import { WARDS } from "./seed-data";
+import { WARDS, PATIENTS } from "./seed-data";
 
 // ─── Seeded PRNG (separate seed from seed-data.ts) ─────────────────────────────
 let _rxSeed = 9999;
