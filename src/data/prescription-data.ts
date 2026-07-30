@@ -382,7 +382,7 @@ function daysAgoRx(d: number, hourOffset = 0): string {
 
 // ─── Import patients list from seed data and generate letters ─────────────────
 
-import { PATIENTS } from "./seed-data";
+
 
 // Determine which patient IDs get letters (60% have letters, 40% "new")
 const PATIENT_HAS_LETTERS: Set<string> = new Set();
