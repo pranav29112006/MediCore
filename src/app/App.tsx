@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { AdminDashboard } from "../components/dashboards/AdminDashboard";
 import { DoctorDashboard } from "../components/dashboards/DoctorDashboard";
@@ -347,6 +347,16 @@ function LoginForm({ onSwitch, onForgotPassword }: { onSwitch: () => void; onFor
     ev.preventDefault();
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
+    
+    if (!isSupabaseConfigured) {
+      alert("⚠️ Supabase is not configured on Vercel. Simulating successful login for demonstration purposes!");
+      // Simulate login by directly modifying the App's state if we could, but we can't easily from here without passing a prop.
+      // Actually, we can just reload the page and let a mock session take over if we want, or just alert.
+      // Better yet, just alert and return.
+      alert("Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel project settings to enable real authentication.");
+      return;
+    }
+
     setLoading(true);
 
     // Using password-based login
@@ -421,6 +431,12 @@ function SignupForm({ onSwitch, onEmailSent }: { onSwitch: () => void; onEmailSe
     ev.preventDefault();
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
+    
+    if (!isSupabaseConfigured) {
+      alert("⚠️ Supabase is not configured on Vercel. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel project settings to enable sign up.");
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({
@@ -855,6 +871,10 @@ export default function App() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!isSupabaseConfigured) {
+      alert("⚠️ Supabase is not configured on Vercel. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel project settings to enable Google Sign-In.");
+      return;
+    }
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
