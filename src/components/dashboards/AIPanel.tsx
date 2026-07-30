@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BrainCircuit, Sparkles, Send, X, MessageSquare, Loader2,
-  ChevronRight, Bot, User, Zap, AlertCircle,
+  ChevronRight, Bot, User, Zap, AlertCircle, KeyRound, Check,
 } from "lucide-react";
-import { summarizePatient, chatWithAI, isGeminiConfigured } from "../../lib/gemini-service";
+import { summarizePatient, chatWithAI, isGeminiConfigured, setGeminiApiKey, getGeminiApiKey } from "../../lib/gemini-service";
 import type { PatientContext } from "../../lib/gemini-service";
 
 interface ChatMessage {
@@ -31,6 +31,67 @@ function renderMarkdown(text: string): string {
     .replace(/\n/g, '<br/>');
 }
 
+// ─── API Key Input ────────────────────────────────────────────────────────────
+
+function ApiKeyInput({ onKeySet }: { onKeySet: () => void }) {
+  const [keyInput, setKeyInput] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const key = keyInput.trim();
+    if (key) {
+      setGeminiApiKey(key);
+      // Also save to localStorage for persistence across page reloads
+      try { localStorage.setItem("medicore_gemini_key", key); } catch {}
+      setSaved(true);
+      onKeySet();
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
+
+  return (
+    <div className="p-3 bg-violet-500/5 border border-violet-500/20 rounded-xl">
+      <div className="flex items-center gap-2 mb-2">
+        <KeyRound className="size-3.5 text-violet-500" />
+        <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">
+          Connect Gemini AI
+        </span>
+      </div>
+      <p className="text-[10px] text-muted-foreground mb-2.5">
+        Enter your Google AI Studio API key to enable live AI responses.
+        Get one at{" "}
+        <a
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-violet-500 underline hover:text-violet-400"
+        >
+          aistudio.google.com
+        </a>
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="password"
+          value={keyInput}
+          onChange={(e) => setKeyInput(e.target.value)}
+          placeholder="Paste API key..."
+          className="flex-1 px-3 py-1.5 text-xs bg-background border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-muted-foreground/40"
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+        />
+        <motion.button
+          onClick={handleSave}
+          whileTap={{ scale: 0.95 }}
+          disabled={!keyInput.trim()}
+          className="px-3 py-1.5 text-xs font-semibold bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+        >
+          {saved ? <Check className="size-3" /> : <Zap className="size-3" />}
+          {saved ? "Saved!" : "Connect"}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ─── AI Panel ─────────────────────────────────────────────────────────────────
 
 export function AIPanel({
@@ -48,9 +109,22 @@ export function AIPanel({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [configured, setConfigured] = useState(isGeminiConfigured());
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const configured = isGeminiConfigured();
+
+  // Try to restore API key from localStorage on mount
+  useEffect(() => {
+    if (!isGeminiConfigured()) {
+      try {
+        const savedKey = localStorage.getItem("medicore_gemini_key");
+        if (savedKey) {
+          setGeminiApiKey(savedKey);
+          setConfigured(true);
+        }
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -210,6 +284,11 @@ export function AIPanel({
                   </span>
                 </div>
 
+                {/* API Key Input (only show when not configured) */}
+                {!configured && (
+                  <ApiKeyInput onKeySet={() => setConfigured(true)} />
+                )}
+
                 {/* Summarize Button */}
                 <motion.button
                   onClick={handleSummarize}
@@ -230,18 +309,6 @@ export function AIPanel({
                     </>
                   )}
                 </motion.button>
-
-                {/* API Key Warning */}
-                {!configured && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Gemini API key not configured. Using offline fallback summaries.
-                      Add your key to <code className="px-1 py-0.5 bg-amber-500/10 rounded text-[10px]">.env</code> as{" "}
-                      <code className="px-1 py-0.5 bg-amber-500/10 rounded text-[10px]">VITE_GEMINI_API_KEY</code>.
-                    </p>
-                  </div>
-                )}
 
                 {/* Summary Result */}
                 <AnimatePresence mode="wait">
@@ -289,6 +356,13 @@ export function AIPanel({
               </div>
             ) : (
               <div className="flex flex-col h-full">
+                {/* API Key Input for chat tab too */}
+                {!configured && (
+                  <div className="mb-4">
+                    <ApiKeyInput onKeySet={() => setConfigured(true)} />
+                  </div>
+                )}
+
                 {/* Chat Messages */}
                 <div className="flex-1 flex flex-col gap-3 mb-4">
                   {chatMessages.length === 0 && !isTyping && (

@@ -1,22 +1,22 @@
 // ─── Gemini AI Service ─────────────────────────────────────────────────────────
 // Provides AI-powered clinical summaries and chatbot for doctor recommendations.
+// Uses the Gemini REST API directly for maximum compatibility.
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Patient, Vital, Diagnosis, Prescription, ClinicalNote, RiskScore } from "./types";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+// Try build-time env first, then allow runtime override
+let _apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
-let genAI: GoogleGenerativeAI | null = null;
-
-function getClient(): GoogleGenerativeAI | null {
-  if (!API_KEY || API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
-    return null;
-  }
-  if (!genAI) {
-    genAI = new GoogleGenerativeAI(API_KEY);
-  }
-  return genAI;
+export function setGeminiApiKey(key: string) {
+  _apiKey = key;
 }
+
+export function getGeminiApiKey(): string {
+  return _apiKey;
+}
+
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL = "gemini-2.0-flash";
 
 export interface PatientContext {
   patient: Patient;
@@ -25,6 +25,41 @@ export interface PatientContext {
   prescriptions: Prescription[];
   notes: ClinicalNote[];
   riskScore?: RiskScore;
+}
+
+async function callGemini(prompt: string): Promise<string> {
+  const key = _apiKey;
+  if (!key || key === "YOUR_GEMINI_API_KEY_HERE") {
+    throw new Error("API key not configured");
+  }
+
+  const url = `${GEMINI_API_BASE}/${MODEL}:generateContent?key=${key}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+        topP: 0.95,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Gemini API error:", response.status, error);
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("No response from Gemini");
+  }
+  return text;
 }
 
 function buildPatientContextPrompt(ctx: PatientContext): string {
@@ -68,16 +103,10 @@ ${notes.slice(0, 5).map(n => `- [${n.noteType}] ${n.authorName} (${new Date(n.cr
 }
 
 export async function summarizePatient(ctx: PatientContext): Promise<string> {
-  const client = getClient();
-  if (!client) {
-    return generateFallbackSummary(ctx);
-  }
-
   try {
-    const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
     const contextPrompt = buildPatientContextPrompt(ctx);
 
-    const result = await model.generateContent(`
+    const result = await callGemini(`
 You are a senior clinical AI assistant in a hospital. Given the following patient data, provide a concise but comprehensive clinical summary for the attending doctor. Include:
 
 1. **Patient Overview** — Brief summary of who the patient is and why they're admitted
@@ -91,10 +120,9 @@ Keep the tone professional and clinical. Use bullet points for clarity. Be speci
 ${contextPrompt}
     `.trim());
 
-    const response = result.response;
-    return response.text();
+    return result;
   } catch (error) {
-    console.error("Gemini API error:", error);
+    console.error("Summarize error:", error);
     return generateFallbackSummary(ctx);
   }
 }
@@ -104,13 +132,7 @@ export async function chatWithAI(
   ctx: PatientContext,
   chatHistory: { role: "user" | "assistant"; content: string }[]
 ): Promise<string> {
-  const client = getClient();
-  if (!client) {
-    return generateFallbackChat(message, ctx);
-  }
-
   try {
-    const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
     const contextPrompt = buildPatientContextPrompt(ctx);
 
     const historyText = chatHistory
@@ -118,7 +140,7 @@ export async function chatWithAI(
       .map(h => `${h.role === "user" ? "Doctor" : "AI Assistant"}: ${h.content}`)
       .join("\n\n");
 
-    const result = await model.generateContent(`
+    const result = await callGemini(`
 You are a senior clinical AI assistant in a hospital setting. You are helping the attending doctor with recommendations and clinical decision support for the following patient.
 
 ${contextPrompt}
@@ -130,10 +152,9 @@ Doctor's Question: ${message}
 Provide helpful, evidence-based clinical recommendations. Be specific and reference the patient's data when relevant. If the question involves medication changes, mention potential interactions with current medications. Keep your response concise and actionable. Use markdown formatting for clarity.
     `.trim());
 
-    const response = result.response;
-    return response.text();
+    return result;
   } catch (error) {
-    console.error("Gemini API error:", error);
+    console.error("Chat error:", error);
     return generateFallbackChat(message, ctx);
   }
 }
@@ -232,5 +253,5 @@ function generateFallbackChat(message: string, ctx: PatientContext): string {
 }
 
 export function isGeminiConfigured(): boolean {
-  return !!API_KEY && API_KEY !== "YOUR_GEMINI_API_KEY_HERE";
+  return !!_apiKey && _apiKey !== "YOUR_GEMINI_API_KEY_HERE";
 }
