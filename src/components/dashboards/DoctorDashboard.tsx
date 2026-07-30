@@ -4,14 +4,18 @@ import {
   Users, Activity, BrainCircuit, ChevronRight, Search,
   AlertTriangle, Heart, Thermometer, Wind, TrendingUp,
   TrendingDown, Clock, FileText, ArrowLeft, Pill,
-  Stethoscope, ClipboardList,
+  Stethoscope, ClipboardList, ScrollText,
 } from "lucide-react";
 import {
   getPatients, getAlerts, getRiskDistribution, getPatientById,
   getVitals, getDiagnoses, getPrescriptions, getClinicalNotes,
   getRiskScore, getLatestVitals, acknowledgeAlert,
+  getPrescriptionLetters,
 } from "../../lib/data-service";
 import type { Patient, Alert, Vital, Diagnosis, Prescription, ClinicalNote, RiskScore } from "../../lib/types";
+import { PrescriptionLetterCard, NoPrescriptionsState } from "./PrescriptionLetterCard";
+import { AIPanel, AIPanelButton } from "./AIPanel";
+import type { PatientContext } from "../../lib/gemini-service";
 
 const RISK_COLORS: Record<string, string> = {
   critical: "bg-red-500",
@@ -44,6 +48,8 @@ function timeAgo(date: string): string {
 // ─── Patient Detail View ──────────────────────────────────────────────────────
 
 function PatientDetailView({ patientId, onBack }: { patientId: string; onBack: () => void }) {
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+
   const patient = getPatientById(patientId);
   if (!patient) return <p className="text-muted-foreground">Patient not found.</p>;
 
@@ -52,7 +58,17 @@ function PatientDetailView({ patientId, onBack }: { patientId: string; onBack: (
   const prescriptions = getPrescriptions(patientId);
   const notes = getClinicalNotes(patientId);
   const risk = getRiskScore(patientId);
+  const prescriptionLetters = getPrescriptionLetters(patientId);
   const latestVital = vitals[vitals.length - 1];
+
+  const patientContext: PatientContext = {
+    patient,
+    vitals,
+    diagnoses,
+    prescriptions,
+    notes,
+    riskScore: risk,
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -168,6 +184,27 @@ function PatientDetailView({ patientId, onBack }: { patientId: string; onBack: (
               ))}
             </div>
           </div>
+
+          {/* Prescription Letters */}
+          <div className="p-5 rounded-2xl border border-border/50 bg-card/40 backdrop-blur-xl">
+            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <ScrollText className="size-5 text-primary" /> Prescription Letters
+              {prescriptionLetters.length > 0 && (
+                <span className="ml-auto text-xs text-muted-foreground font-normal">
+                  {prescriptionLetters.length} letter{prescriptionLetters.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </h3>
+            {prescriptionLetters.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {prescriptionLetters.map((letter) => (
+                  <PrescriptionLetterCard key={letter.id} letter={letter} />
+                ))}
+              </div>
+            ) : (
+              <NoPrescriptionsState />
+            )}
+          </div>
         </div>
 
         {/* Right: Diagnoses + Prescriptions */}
@@ -235,6 +272,18 @@ function PatientDetailView({ patientId, onBack }: { patientId: string; onBack: (
           </div>
         </div>
       </div>
+
+      {/* AI Panel */}
+      <AIPanel
+        patientContext={patientContext}
+        isOpen={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+      />
+
+      {/* AI Panel Toggle Button */}
+      {!aiPanelOpen && (
+        <AIPanelButton onClick={() => setAiPanelOpen(true)} />
+      )}
     </div>
   );
 }

@@ -117,3 +117,32 @@ export interface HospitalStats {
   occupancyRate: number;
   activeAlerts: number;
 }
+
+export interface PrescriptionLetterMedication {
+  name: string;
+  dosage: string;
+  frequency: string;
+  route: string;
+  duration: string;
+  instructions: string;
+}
+
+export interface PrescriptionLetter {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientAge: number;
+  patientGender: string;
+  patientMRN: string;
+  patientRoom: string;
+  dateIssued: string;
+  doctorName: string;
+  doctorRegNo: string;
+  department: string;
+  hospitalName: string;
+  medications: PrescriptionLetterMedication[];
+  diagnosis: string;
+  specialInstructions: string;
+  followUpDate: string | null;
+  isRefill: boolean;
+}

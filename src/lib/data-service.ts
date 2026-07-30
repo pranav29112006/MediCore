@@ -282,3 +282,17 @@ export function getDepartmentStats(): { department: string; wardId: string; admi
     };
   });
 }
+
+// ─── Prescription Letters ─────────────────────────────────────────────────────
+
+import { getLettersForPatient, hasPatientLetters } from "../data/prescription-data";
+import type { PrescriptionLetter } from "./types";
+
+export function getPrescriptionLetters(patientId: string): PrescriptionLetter[] {
+  return getLettersForPatient(patientId);
+}
+
+export function patientHasPrescriptionLetters(patientId: string): boolean {
+  return hasPatientLetters(patientId);
+}
+
